@@ -1,0 +1,45 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isInRoom(roomData) {
+      return request.auth.uid in roomData.playerIds;
+    }
+
+    match /rooms/{roomCode} {
+      // Anyone signed in can read room state (needed to render the table)
+      // and create a new room for themselves.
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.hostId == request.auth.uid;
+
+      // Any player already in the room, or a player who's in the room
+      // *after* the write (i.e. joining), can update it.
+      allow update: if isSignedIn() &&
+        (isInRoom(resource.data) || isInRoom(request.resource.data));
+
+      allow delete: if false;
+
+      // Each player's cards live in their own private sub-document.
+      match /hands/{playerId} {
+        // Only the owner can ever READ their own hand — this is what
+        // stops opponents from seeing your cards.
+        allow read: if isSignedIn() && request.auth.uid == playerId;
+
+        // Writes need to come from someone in the room, because turn
+        // effects (Draw Two / Wild Draw Four) require the player who
+        // played the card to add cards to a *different* player's hand.
+        // Rules can't easily re-validate the full game logic here, so
+        // this is "any room member can write any hand in that room" —
+        // see the note in README.md about what this does and doesn't
+        // protect against.
+        allow write: if isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomCode)).data.playerIds;
+      }
+    }
+  }
+}
