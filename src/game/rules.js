@@ -46,4 +46,16 @@ export function isActionCard(card) {
     "Wild",
     "WildDraw4",
   ].includes(card.value);
-  }
+}
+
+export function displayValue(value) {
+  // Convert card values to human-readable format
+  const displayMap = {
+    "WildDraw4": "Wild Draw 4",
+    "Wild": "Wild",
+    "Draw2": "Draw 2",
+    "Skip": "Skip",
+    "Reverse": "Reverse",
+  };
+  return displayMap[value] || value;
+}
